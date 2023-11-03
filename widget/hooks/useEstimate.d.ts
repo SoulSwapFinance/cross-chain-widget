@@ -1,0 +1,42 @@
+import { BigNumber } from "ethers";
+export declare const useEstimate: () => {
+    allFeeCosts: import("@0xsquid/sdk").FeeCost[];
+    allGasCosts: import("@0xsquid/sdk").GasCost[];
+    crossChainGasFee: import("@0xsquid/sdk").FeeCost | undefined;
+    priceImpact: string | undefined;
+    exchangeRate: string;
+    toAmountMin: string;
+    toAmount: string;
+    fromToken: import("@0xsquid/sdk").TokenData | undefined;
+    toAmountUSD: string | undefined;
+    toAmountUSDFloat: number;
+    isFetching: boolean;
+    squidRouteError: unknown;
+    priceImpactStatus: string | undefined;
+    fromAmount: string | undefined;
+    fromAmountFormatted: string;
+    estimatedRouteDuration: number | undefined;
+    minAmountValueWarnMsg: string | undefined;
+    fromBalanceEnoughToSwap: boolean;
+    isFromTokenNative: boolean;
+    firstFeeCost: import("@0xsquid/sdk").FeeCost | undefined;
+    firstGasCost: import("@0xsquid/sdk").GasCost | undefined;
+    sameTokenBetweenFees: boolean;
+    totalFeesInNativeTokenPlusRatio: BigNumber;
+    totalNativeFees: BigNumber;
+    sourceChainNativeToken: import("@0xsquid/sdk").TokenData | undefined;
+    expressFeeCost: import("@0xsquid/sdk").FeeCost | undefined;
+    proposedGasDestinationAmount: {
+        value: number;
+        currency: string | undefined;
+    };
+    expectedGasRefundCost: BigNumber;
+    expressSupportedForThisRoute: boolean;
+    transactionTimeEstimate: string;
+    totalWithRefundEstimate: {
+        totalAmount: number;
+        totalAmountUSD: number;
+        feeToken: import("@0xsquid/sdk").TokenData | undefined;
+    };
+    destChainNativeToken: import("@0xsquid/sdk").TokenData | undefined;
+};

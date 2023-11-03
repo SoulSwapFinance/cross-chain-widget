@@ -1,0 +1,1 @@
+{"version":3,"file":"react-query-config.js","sourceRoot":"","sources":["../../../../src/widget/core/queries/react-query-config.ts"],"names":[],"mappings":"AAEA,gEAAgE;AAChE,MAAM,CAAC,MAAM,kBAAkB,GAAG,IAAI,CAAC;AAEvC,MAAM,CAAC,MAAM,cAAc,GAAmB;IAC5C,OAAO,EAAE;QACP,SAAS,EAAE,kBAAkB;QAC7B,oBAAoB,EAAE,KAAK;QAC3B,KAAK,EAAE,KAAK;QACZ,YAAY,EAAE,KAAK;KACpB;CACF,CAAC"}

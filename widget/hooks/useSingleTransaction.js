@@ -1,0 +1,125 @@
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+import { useMemo, useState } from "react";
+import { axelarEndStatuses, axelarSuccessStatuses } from "../core/constants";
+import { keys } from "../core/queries/queries-keys";
+import { updateTransactionHistoryStatus } from "../services/internal/transactionService";
+import { getHalfSuccessState, getStepStatuses, } from "../services/internal/transactionStatusService";
+import { usePersistStore, useSquidStore } from "../store/useSquidStore";
+import { useSquidRouter } from "./useSquidRouter";
+export const useSingleTransaction = (transaction, disableIfTransactionLoading = true) => {
+    var _a, _b, _c, _d;
+    const { config } = useSquidStore();
+    const { currentRoute } = useSquidRouter();
+    const [refetchInterval, setRefetchInterval] = useState(10000);
+    const { transactionsHistory } = usePersistStore();
+    const currentHistoryItem = useMemo(() => transactionsHistory === null || transactionsHistory === void 0 ? void 0 : transactionsHistory.find((th) => th.transactionId === (transaction === null || transaction === void 0 ? void 0 : transaction.transactionId)), [transactionsHistory, transaction]);
+    /**
+     * Transaction status endpoint
+     * Squid api is using axelar endpoint and parsing the response
+     * @returns {StatusResponse} Status response
+     */
+    const transactionStatusQuery = useQuery(keys({ apiUrl: config.apiUrl }).transactionStatus(transaction), () => __awaiter(void 0, void 0, void 0, function* () {
+        var _e, _f;
+        const statusEndpoint = `${config.apiUrl}/v1/status`;
+        const response = yield ((_f = axios
+            .get(statusEndpoint, {
+            params: {
+                transactionId: transaction === null || transaction === void 0 ? void 0 : transaction.transactionId,
+            },
+            headers: {
+                "X-Integrator-Id": config.integratorId,
+                "X-Request-Id": (_e = useSquidStore.getState().currentRequestId) !== null && _e !== void 0 ? _e : "",
+            },
+        })) === null || _f === void 0 ? void 0 : _f.catch((error) => {
+            throw new Error("Fetch transaction status failed", {
+                cause: error,
+            });
+        }));
+        return response.data;
+    }), {
+        enabled: transaction !== undefined &&
+            (currentHistoryItem === null || currentHistoryItem === void 0 ? void 0 : currentHistoryItem.status) !== "error" &&
+            ((_a = transaction === null || transaction === void 0 ? void 0 : transaction.statusResponse) === null || _a === void 0 ? void 0 : _a.status) !== "destination_executed" &&
+            ((_b = transaction === null || transaction === void 0 ? void 0 : transaction.statusResponse) === null || _b === void 0 ? void 0 : _b.status) !== "express_executed" &&
+            (disableIfTransactionLoading ? transaction.status !== "loading" : true),
+        refetchInterval(data, query) {
+            var _a;
+            const statusResponse = data;
+            // If the status response is something telling that the transaction
+            // is finished, then store transaction history state if success
+            // And return false to indicate refetcher to stop
+            if (statusResponse &&
+                axelarEndStatuses.includes((_a = statusResponse.status) !== null && _a !== void 0 ? _a : "")) {
+                return false;
+            }
+            return refetchInterval; // Had to handle a variable here because after onError, we want the interval to stop
+        },
+        retryDelay: 3000,
+        retry: currentRoute.id === "transaction" ? 25 : 1,
+        refetchOnWindowFocus: false,
+        onSuccess: (data) => {
+            var _a;
+            const statusResponse = data;
+            if (statusResponse &&
+                axelarSuccessStatuses.includes((_a = statusResponse.status) !== null && _a !== void 0 ? _a : "") &&
+                (currentHistoryItem === null || currentHistoryItem === void 0 ? void 0 : currentHistoryItem.status) !== "success") {
+                usePersistStore.setState({
+                    transactionsHistory: updateTransactionHistoryStatus(transaction === null || transaction === void 0 ? void 0 : transaction.transactionId, "success", usePersistStore.getState().transactionsHistory, statusResponse),
+                });
+            }
+        },
+        onError: (error) => {
+            var _a, _b;
+            // Check if axios error and if it's a 404
+            const is404 = ((_b = (_a = error.cause) === null || _a === void 0 ? void 0 : _a.response) === null || _b === void 0 ? void 0 : _b.status) === 404;
+            setRefetchInterval(-1);
+            usePersistStore.setState({
+                transactionsHistory: updateTransactionHistoryStatus(transaction === null || transaction === void 0 ? void 0 : transaction.transactionId, is404 ? "data_unavailable" : "error", usePersistStore.getState().transactionsHistory, undefined),
+            });
+        },
+    });
+    /**
+     * Return the status of the latest transaction step
+     * Could be "error", "loading", "idle", "success", "paused"
+     * If the transaction getter fails to fetch the transaction, it will return "error"
+     */
+    const latestStatus = useMemo(() => {
+        var _a;
+        if ((currentHistoryItem === null || currentHistoryItem === void 0 ? void 0 : currentHistoryItem.status) === "success") {
+            return ((_a = getHalfSuccessState(currentHistoryItem.statusResponse)) !== null && _a !== void 0 ? _a : "success");
+        }
+        // Sometimes We get a 404 from the transactionStatus getter
+        // This doesnt mean that the transaction failed, but could mean that the transaction is not yet indexed
+        if ((currentHistoryItem === null || currentHistoryItem === void 0 ? void 0 : currentHistoryItem.status) === "data_unavailable") {
+            return "data_unavailable";
+        }
+        if ((currentHistoryItem === null || currentHistoryItem === void 0 ? void 0 : currentHistoryItem.status) === "error") {
+            return "error";
+        }
+        const statuses = getStepStatuses({
+            transaction,
+            statusResponse: transactionStatusQuery,
+            onlyFullStatusStep: true,
+        });
+        return statuses[statuses.length - 1];
+    }, [transaction, transactionStatusQuery, currentHistoryItem]);
+    const fromChain = useMemo(() => { var _a; return (_a = transactionStatusQuery.data) === null || _a === void 0 ? void 0 : _a.fromChain; }, [(_c = transactionStatusQuery.data) === null || _c === void 0 ? void 0 : _c.fromChain]);
+    const toChain = useMemo(() => { var _a; return (_a = transactionStatusQuery.data) === null || _a === void 0 ? void 0 : _a.toChain; }, [(_d = transactionStatusQuery.data) === null || _d === void 0 ? void 0 : _d.toChain]);
+    return {
+        transactionStatusQuery,
+        fromChain,
+        toChain,
+        latestStatus,
+    };
+};
+//# sourceMappingURL=useSingleTransaction.js.map
